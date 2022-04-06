@@ -39,7 +39,7 @@ Analyses:
 
 @author: hanna
 created on Sun Nov  7 13:40:10 2021
-last updated: March 30, 2022
+last updated: April 5, 2022
 '''
 
 
@@ -77,9 +77,7 @@ from behavior_fxns    import plotTimes, basicCursorTimesPLOT
 '''#! Change directory to where data is stored.'''
 os.chdir(r'C:\Users\hanna\OneDrive\Documents\BMI_Rotation\Data\Brazos\neg50\20220328')  
 
-hdf_files = glob.glob('*hdf')
-hdf = tables.open_file(hdf_files[0])
-
+hdf = tables.open_file(glob.glob('*.hdf')[0])
 decoder_files = glob.glob('*.pkl')
 decoder_filename = decoder_files[0]
 KG_picklename = decoder_files[1]
@@ -213,7 +211,7 @@ for i in range(lenHDF):
 '############################'
 
 fig, axes = plt.subplots(1, numB, figsize=(5*numB,4), sharex=True, sharey=True)
-fig.suptitle(r'Cursor Trajectories - Rotation Perturbation (' + str(deg) + '$\degree$) - Session: ' + hdf_files[0][:15])
+fig.suptitle(r'Cursor Trajectories - Rotation Perturbation (' + str(deg) + '$\degree$) - Session: ' + hdf.filename[:15])
 
 dictTrials = {} #Without error clamp trials
 dictTimes  = {}
@@ -232,7 +230,7 @@ plt.show()
 
 
 '''Individual Trial Times, Color-Coded by Block'''
-plotTimes(keys, dictTrials, dictTimes, dColors, dTitles, dStart, dEnd, deg, hdf_files[0])
+plotTimes(keys, dictTrials, dictTimes, dColors, dTitles, dStart, dEnd, deg, hdf.filename)
 plt.show()
 
 
@@ -332,6 +330,7 @@ plt.legend(fontsize=18)
 plt.show()
 
 
+#%%
 '################################################'    
 ''' HISTOGRAM: Changes in Preferred Direction '''
 '################################################' 
@@ -348,24 +347,27 @@ def vectorPDChange(df, n, k1, k2):
     return(degChange)
 
 
-dfPD = pd.DataFrame({'neurons':units,'BL':dPDMD['BL'][:,0], 'PE':dPDMD['PE'][:,0], 'PL':dPDMD['PL'][:,0]}).sort_values(by=['BL'])
-
-PE_BL = [vectorPDChange(dfPD, n, 'PE', 'BL') for n in range(len(units))]
+dfPD = pd.DataFrame({'neurons':units,'BL':dPDMD['BL'][:,0], 'PE':dPDMD['PE'][:,0], 'PL':dPDMD['PL'][:,0]})
+PE_BL = [vectorPDChange(dfPD, n, 'PE', 'BL') for n in dfPD['neurons'].index.tolist()]
+dfPD['PE_BL'] = PE_BL
+dfPD = dfPD.sort_values(by=['PE_BL'])
 
 plt.figure(figsize=((5,3)))
-plt.title('Change in Preferred Direction Due to Learning', fontweight='bold', fontsize=12.5)  
+plt.title('Change in Preferred Direction Due to Learning \n{}'.format(hdf.filename), fontweight='bold', fontsize=12.5)  
 plt.ylabel('Number of Units in Bin', fontname='Arial')
-plt.xlabel('Absolute Difference (' +  (chr(176)) + ')', fontname='Arial', fontsize=8, style='italic')
+plt.xlabel('Absolute Difference ({})'.format(chr(176)), fontname='Arial', fontsize=8, style='italic')
 hist = plt.hist(PE_BL, color='blueviolet', edgecolor='k', alpha=0.8, bins=8)
 plt.xticks(fontsize=8)
-plt.scatter(np.mean(PE_BL), 12.5, c='blueviolet', edgecolor='k', s=75, alpha=1, label='Mean Change', zorder=3)
-plt.scatter(50, 12.5, c='yellow', marker='*',s=150, edgecolor='k', zorder=3, label='Applied Rotation') 
+plt.scatter(np.mean(PE_BL), np.max(hist[0]+2), c='blueviolet', edgecolor='k', s=75, alpha=1, label='Mean Change', zorder=3)
+plt.scatter(np.abs(hdf.root.task._v_attrs.rot_angle_deg), np.max(hist[0]+2), c='yellow', marker='*',s=150, edgecolor='k', zorder=3, label='Applied Rotation') 
 plt.legend(fontsize=8)
 plt.xlim([0,180])
 plt.show()
 
+#%%
 
-    
+
+#%%
 '################################################'    
 ''' Modulation Depth Plotted by Block '''
 '################################################' 
@@ -432,10 +434,13 @@ def tcUnitHeatMap(tc, ax, pd_BL, first, title, units):
         
     if ax == ax3:
         cmap = 'seismic'
+        sb.heatmap(tcSorted, ax=ax, cbar=cbar, cmap=cmap, vmin=-3, vmax=3)
     else:
         cmap='PRGn'
+        sb.heatmap(tcSorted, ax=ax, cbar=cbar, cmap=cmap)
     
-    sb.heatmap(tcSorted, ax=ax, cbar=cbar, cmap=cmap)
+    
+    
     ax.set_title(title, fontname='Arial', fontsize=20)
     
     ax.set_xlabel('Degrees', fontname='Arial', fontsize=16)
@@ -444,7 +449,9 @@ def tcUnitHeatMap(tc, ax, pd_BL, first, title, units):
 
     ax.set_yticks(np.arange(0,len(units)))
     ax.set_yticklabels(np.arange(1,len(units)+1), rotation=360)
-    ax.set_ylabel('Unit Number', fontname='Arial', fontsize=16)
+    
+    if ax == ax1:
+        ax.set_ylabel('Unit Number', fontname='Arial', fontsize=16)
     
     return()
 
@@ -461,8 +468,10 @@ def tcHeatMapFA(tc, ax, title, count):
         
     if (count == 2):
         cmap = 'RdGy'#'seismic'
+        sb.heatmap(tcSorted, ax=ax, cbar=cbar, cmap=cmap, vmin=-3, vmax=3)
     else:
         cmap='PRGn'
+        sb.heatmap(tcSorted, ax=ax, cbar=cbar, cmap=cmap)
         
     if count == 0:
         title = 'Baseline'
@@ -471,7 +480,7 @@ def tcHeatMapFA(tc, ax, title, count):
     elif count == 2:
         title = 'Difference'
         
-    sb.heatmap(tcSorted, ax=ax, cbar=cbar, cmap=cmap)
+    
     ax.set_title(title, fontname='Arial', fontsize=24)
     ax.set_xlabel('Degrees', fontname='Arial', fontsize=18)
     ax.set_xticks(np.arange(0,361,45))
@@ -498,13 +507,26 @@ dTitles = {'BL': 'Baseline',
            'PE': 'Perturbation'}
 
 fig, [ax1, ax2, ax3] = plt.subplots(1,3, sharey=False, figsize=((15,10)))
-fig.suptitle('Changes in Normalized Tuning Curves', fontweight='bold', fontsize=24)# + hdf_files[session_num] + '\n 50' + u'\N{DEGREE SIGN} Rotation Perturbation', fontname='Arial', fontsize=22)
-fig.subplots_adjust(top=0.9)
+fig.suptitle('Changes in Normalized Tuning Curves \n{}'.format(hdf.filename), fontweight='bold', fontsize=28)
+fig.subplots_adjust(top=0.85)
 dAX = dict(zip(keys[:2], [ax1,ax2]))
 [tcUnitHeatMap( stats.zscore(dTC[k].T, axis=1),  dAX[k], sortbyPD, sortbyTC, dTitles[k], units) for k in keys[:2]]
-tcUnitHeatMap(dTC['PE'].T - dTC['BL'].T, ax3, sortbyPD, sortbyTC, 'PE Minus BL', units)
+tcUnitHeatMap( np.subtract(stats.zscore(dTC['PE'].T, axis=1) , stats.zscore(dTC['BL'].T, axis=1)), ax3, sortbyPD, sortbyTC, 'PE Minus BL', units)
 
 plt.show()
+
+#%%
+
+# KG = {}
+# KG['xBL'] = np.ravel(KG_stored[1000][3,:])
+# KG['yBL'] = np.ravel(KG_stored[1000][5,:])
+
+# KG['xPE'] = np.ravel(KG_stored[15000][3,:])
+# KG['yPE'] = np.ravel(KG_stored[15000][5,:])
+
+# plt.scatter(KG['xBL'], dfPD['PE_BL'])
+# plt.scatter(KG['yBL'], dfPD['PE_BL'])
+
 
 
 
